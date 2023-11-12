@@ -7,12 +7,11 @@ from .object_resource import LabObjectResource
 
 
 class DeviceBlock(Block):
-
     def __init__(
-            self,
-            env: Environment,
-            device: Device,
-            block_capacity=1,
+        self,
+        env: Environment,
+        device: Device,
+        block_capacity=1,
     ):
         """Device block, which can be used to model a device in a lab.
 
@@ -54,13 +53,24 @@ class DeviceBlock(Block):
         assert job.get_next_machine() == self.device.identifier
 
         # make projections
-        involved_objects, processing_time = self.device.act_by_instruction(job.instruction, actor_type="proj")
+        involved_objects, processing_time = self.device.act_by_instruction(
+            job.instruction, actor_type="proj"
+        )
 
         # request resources for lab objects
-        resource_objects = [LabObjectResource.from_lab_object(obj, self.env) for obj in involved_objects]
+        resource_objects = [
+            LabObjectResource.from_lab_object(obj, self.env) for obj in involved_objects
+        ]
+
         reqs = [ro.resource.request() for ro in resource_objects]
+        # [print(dir(ro.resource)) for ro in resource_objects]
+        # [print(ro.resource.queue) for ro in resource_objects]
+        # [print(ro.resource.get_queue) for ro in resource_objects]
         # note the device resource is requested/released in `_process_entity` of `Block`
         for req in reqs:
+            # print(dir(req))
+            # print(dir(req.resource))
+            print(req.resource.queue)
             yield req
 
         # TODO there is an arbitrary delay between "requests are sent" and "resources are ready",
@@ -76,3 +86,4 @@ class DeviceBlock(Block):
             ro.resource.release(req)
         # exit, change job status
         job.notify_processing_step_completion()
+        # print(Environment()._queue)
