@@ -295,6 +295,8 @@ def run_single_milp(
     new_row["num_constraints"] = model.NumConstrs
     # get the number of variables
     new_row["num_variables"] = model.NumVars
+    # save the number of workers
+    new_row["num_workers"] = num_workers
     # makespan
     makespan = model.objVal
     new_row["makespan"] = makespan
