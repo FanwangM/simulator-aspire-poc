@@ -7,13 +7,13 @@ from collections import defaultdict
 from typing import Any
 
 import networkx as nx
+from loguru import logger
 from pandas._typing import FilePath
 from pydantic import BaseModel
-from rdkit.Chem import Descriptors
-from rdkit.Chem import MolFromSmiles
+from pysmiles import read_smiles
 
 from reaction_network.schema.provenance import get_provenance_model
-from reaction_network.utils import query_askcos_condition_rec, drawing_url, json_load
+from reaction_network.utils import query_askcos_condition_rec, drawing_url, json_load, MM_of_Elements
 from reaction_network.visualization import CytoNodeData, CytoEdge, CytoNode, CytoEdgeData
 
 
@@ -125,7 +125,12 @@ class CompoundLv0(get_provenance_model(CompoundLv0Base, "CompoundLv0_")):
 
     @staticmethod
     def make_up_compound_info(smiles: str):
-        mw = Descriptors.MolWt(MolFromSmiles(smiles))
+        logger.warning(f"making up properties for: {smiles}")
+        mol = read_smiles(smiles, explicit_hydrogen=True)
+        mw = 0
+        for _, element in mol.nodes(data='element'):
+            mw += MM_of_Elements[element]
+        assert mw > 1
         if mw < 200 and all(m not in smiles for m in ['Li', 'Na', 'K', 'Mg', 'Ca', 'Pd']):
             form = "LIQUID"
             density = 1.0
@@ -137,7 +142,7 @@ class CompoundLv0(get_provenance_model(CompoundLv0Base, "CompoundLv0_")):
     @staticmethod
     def get_default_compound_lv0(smiles: str):
         mw, form, density = CompoundLv0.make_up_compound_info(smiles)
-        mw_p = "calculated using rdkit"
+        mw_p = "calculated using pysmiles"
         form_p = "made up"
         density_p = "made up"
         return CompoundLv0(
@@ -160,7 +165,7 @@ class CompoundLv0(get_provenance_model(CompoundLv0Base, "CompoundLv0_")):
                 mw, form_mu, density_mu = CompoundLv0.make_up_compound_info(smiles)
                 form_p = f"from scraper output: {scraper_output}"
                 density_p = f"from scraper output: {scraper_output}"
-                mw_p = "calculated using rdkit"
+                mw_p = "calculated using pysmiles"
                 if form is None:
                     form = form_mu
                     form_p = "made up"
@@ -227,8 +232,7 @@ class NetworkLv0(BaseModel):
             compounds=[],
             provenance=routes_file
         )
-        if scraper_output:
-            network.populate_compounds(scraper_output=scraper_output)
+        network.populate_compounds(scraper_output=scraper_output)
         return network
 
     @property
@@ -238,7 +242,10 @@ class NetworkLv0(BaseModel):
             smis += r.unique_molecular_smis
         return sorted(set(smis))
 
-    def populate_compounds(self, scraper_output: FilePath):
+    def populate_compounds(self, scraper_output: FilePath | None):
+        if scraper_output is None:
+            logger.warning(f"no scraper output given, "
+                           f"populating {len(self.unique_molecular_smis)} compounds using made up properties!")
         for smi in self.unique_molecular_smis:
             c = CompoundLv0.from_smiles(smi, scraper_output=scraper_output)
             self.compounds.append(c)

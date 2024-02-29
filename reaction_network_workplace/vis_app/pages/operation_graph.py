@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 
 import dash_bootstrap_components as dbc
@@ -10,11 +11,15 @@ from reaction_network.utils import drawing_url
 from reaction_network.utils import json_load
 from reaction_network.visualization import STYLESHEET
 
+app = get_app()
+
 register_page(__name__, path='/operation_graph', description="Operations")
 
 PAGE_ID_HEADER = "OG__"
+network_path = app.title.split("-")[1].strip()  # magic
 
-network = json_load("../network_lv2/bench_top_lv2.json")
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+network = json_load(f"{THIS_DIR}/../../network_{network_path}/step03_bench_top_lv2.json")
 network = BenchTopLv2(**network)
 CYTO_ELEMENTS = network.to_cyto_elements()
 cyto.load_extra_layouts()
@@ -109,8 +114,6 @@ layout = html.Div(
     ], style={"width": "calc(100vw - 100px)"}
 )
 
-app = get_app()
-
 
 def get_summary():
     operations_by_type = defaultdict(list)
@@ -165,7 +168,8 @@ def get_transform_table(data: dict):
 
     rows = [row1, row2, row3, row4]
 
-    if operation_type in [OperationType.OPERATION_LOADING, OperationType.OPERATION_RELOADING, OperationType.OPERATION_ADDITION_SOLID, OperationType.OPERATION_ADDITION_LIQUID]:
+    if operation_type in [OperationType.OPERATION_LOADING, OperationType.OPERATION_RELOADING,
+                          OperationType.OPERATION_ADDITION_SOLID, OperationType.OPERATION_ADDITION_LIQUID]:
         produces_compounds = data['produces']['compounds']
         assert len(produces_compounds) == 1
         pc = produces_compounds[0]
