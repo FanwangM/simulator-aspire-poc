@@ -13,7 +13,7 @@ from profiling_utils import *
 # %%
 input_fname = "gfjsp_10_5_1.txt"
 infinity = 1.0e7
-n_opt_selected = 20
+n_opt_selected = 30
 num_workers = 0
 verbose = False
 # %%
@@ -63,9 +63,11 @@ fjss2 = FJS2(
     precedence=None,
     model_string=None,
     inf_milp=infinity,
-    # workshifts=None,
-    # workshifts=[(500, 0)] * 10,
-    workshifts=[(500, 10)] * 10,
+    workshifts=None,
+    # workshifts=[(500, 0)] * 10, # violates the lag time constraint
+    # workshifts=[(400, 5)] * 10, # this works because the lag time constraint is not violated
+    # workshifts=[(374, 5)] * 10,
+    # workshifts=[(400, 0)] * 10,
 
     # num_workshifts=None, # not used
     # shift_durations=500, # works
@@ -135,3 +137,74 @@ except:  # pylint: disable=bare-except
 
 
 print(f"data record: {new_row}")
+
+
+from fjss import FjsOutput, SolvedOperation
+
+assignments = dict()
+start_times = dict()
+end_times = dict()
+solved_operations = []
+
+# based on https://github.com/FanwangM/solver_checking/blob/6d596f4741482e511f29680b991a0d5c0228391a/debugging_CP.ipynb#L2133
+df = pd.DataFrame(
+    columns=["Task", "Resource", "Start", "Finish"])
+
+operations_ids = list(fjss2.operations.keys())
+machine_ids = list(fjss2.machines.keys())
+
+for i, m in it.product(range(len(fjss2.operations)), range(len(fjss2.machines))):
+    if var_y[i, m] == 1:
+        # TODO: fix this because operations is not a taks
+        # a task is a set of operations
+        df.loc[i, "Task"] = operations_ids[i]
+        # df.loc[i, "Task"] =
+        df.loc[i, "Resource"] = machine_ids[m]
+        df.loc[i, "Start"] = var_s[i]
+        df.loc[i, "Finish"] = var_c[i]
+
+# %%
+import plotly.express as px
+from plotly.figure_factory import create_gantt
+
+# sort the dataframe by "Resource" column which is treated as integer
+df["Task"] = df["Task"].astype(int)
+df = df.sort_values(by="Task", ascending=False)
+
+# get the colors from plotly, Dark24
+color_list = px.colors.qualitative.Dark24[:6]
+
+colors_dict = {
+    0: color_list[0],
+    1: color_list[1],
+    2: color_list[2],
+    3: color_list[3],
+    4: color_list[4],
+    5: color_list[5],
+}
+
+fig = create_gantt(
+    df,
+    # colors='Blues',
+    index_col="Resource",
+    show_colorbar=True,
+    bar_width=0.5,
+    showgrid_x=True,
+    showgrid_y=True,
+    group_tasks=True,
+    colors=colors_dict,
+)
+fig.update_layout(xaxis_type="linear", autosize=True, width=800, height=600)
+
+# add y axis label with "operations"
+fig.update_layout(yaxis_title="Operations")
+# add x axis label with "time"
+fig.update_layout(xaxis_title="Time")
+
+# # save the figure
+# fig.write_image("gantt_chart_MILP_30opt_400_5_ws_2024Feb25_v1.png")
+
+fig.show()
+
+## the missing of machine #4 in the case of 400_0 was caused by the fact that machine 3 and 4 can do the same set of operations, that's
+# (array([ 1,  3,  5,  7, 10, 12, 14, 16, 18, 21, 23, 25, 27]),)
