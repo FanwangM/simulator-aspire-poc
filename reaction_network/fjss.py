@@ -12,9 +12,9 @@ from docplex.mp.model import Model
 from gurobipy import GRB
 from monty.json import MSONable
 from pydantic import BaseModel
-from utils import get_big_m_value
+from reaction_network.utils import get_big_m_value
 
-# from reaction_network.schema.lv2 import BenchTopLv2, OperationType
+from reaction_network.schema.lv2 import BenchTopLv2, OperationType
 
 # os.environ["GRB_LICENSE_FILE"] = "/home/qai/local/gurobi_lic/gurobi.lic"
 
@@ -503,7 +503,9 @@ class FJS2:
             operations = {str(i): operations[i] for i in range(len(operations))}
             operations = OrderedDict(sorted(operations.items()))
         if isinstance(machines, list):
-            machines = {i: machines[i] for i in range(len(machines))}
+            # machines = {i: machines[i] for i in range(len(machines))}
+            machines = {str(i): machines[i] for i in range(len(machines))}
+            machines = OrderedDict(sorted(machines.items()))
 
         self.operations = operations
         self.machines = machines
@@ -545,23 +547,27 @@ class FJS2:
         self.workshifts = workshifts
         # starting time of all the work shifts
         if workshifts:
-            self.ws_starting_time, self.ws_completion_time, self.gap_starting_time, self.gap_completion_time = \
-                self.reformat_workshift_representation(self.workshifts)
+            (
+                self.ws_starting_time,
+                self.ws_completion_time,
+                self.gap_starting_time,
+                self.gap_completion_time,
+            ) = self.reformat_workshift_representation(self.workshifts)
 
             self.horizon = self.__class__.get_horizon(
-            infinity=inf_milp,
-            para_p=para_p,
-            para_h=para_h,
-            para_lmax=para_lmax,
-            ws_completion_time=self.ws_completion_time
+                infinity=inf_milp,
+                para_p=para_p,
+                para_h=para_h,
+                para_lmax=para_lmax,
+                ws_completion_time=self.ws_completion_time,
             )
         else:
             self.horizon = self.__class__.get_horizon(
-            infinity=inf_milp,
-            para_p=para_p,
-            para_h=para_h,
-            para_lmax=para_lmax,
-            ws_completion_time=None,
+                infinity=inf_milp,
+                para_p=para_p,
+                para_h=para_h,
+                para_lmax=para_lmax,
+                ws_completion_time=None,
             )
 
         # self.big_m = self.horizon
@@ -599,9 +605,7 @@ class FJS2:
         # if operation i is processed before operation j
         var_x = model.addMVar((n_opt, n_opt), vtype=GRB.BINARY, name="var_x")
         # if operation i is processed before and overlapped operation j in machine m
-        var_z = model.addMVar(
-            (n_opt, n_opt, n_mach), vtype=GRB.BINARY, name="var_z"
-        )
+        var_z = model.addMVar((n_opt, n_opt, n_mach), vtype=GRB.BINARY, name="var_z")
         # starting time of operation i
         var_s = model.addMVar(n_opt, vtype=GRB.CONTINUOUS, name="var_s")
         # completion time of operation i
@@ -713,16 +717,17 @@ class FJS2:
                 # operations_subset_indices
                 # the subset ordered dictionary follow the same order as the original ordered
                 # dictionary
-                operations_subset = [(list(self.operations.keys())[i], list(self.operations.values())[i])
-                                     for i in self.operations_subset_indices]
+                operations_subset = [
+                    (list(self.operations.keys())[i], list(self.operations.values())[i])
+                    for i in self.operations_subset_indices
+                ]
                 operations_subset = OrderedDict(operations_subset)
 
             else:
-                # n_opt_subset = n_opt
                 operations_subset = self.operations
 
             eps = 1e-5
-            value_m = self.horizon*10 + eps
+            value_m = self.horizon * 10 + eps
             # number of work shifts
             n_ws = len(self.workshifts)
 
@@ -740,7 +745,6 @@ class FJS2:
             self.var_ws_y = var_ws_y
             self.var_ws_z = var_ws_z
 
-
             for i, operation in operations_subset.items():
                 i = int(i)
                 # the i-th operation should be processed in the i-th work shift,
@@ -748,8 +752,9 @@ class FJS2:
 
                 # the i-th operation can be only be assigned to one work shift
                 model.addConstr(
-                        gp.quicksum(var_ws_assignments[i, j] for j in range(n_ws)) == 1, name="workshift_assignment_{i,j}"
-                        )
+                    gp.quicksum(var_ws_assignments[i, j] for j in range(n_ws)) == 1,
+                    name="workshift_assignment_{i,j}",
+                )
 
                 for j in range(n_ws):
                     # model.addConstr(
@@ -760,30 +765,36 @@ class FJS2:
                     # add y_ij with s_i + M(1 - y_ij) >= S_j
                     model.addConstr(
                         # self.ws_starting_time[j] <= var_s[i] + value_m * (1 - var_ws_y[i,j])
-                        var_s[i] >= self.ws_starting_time[j] + eps - value_m * (1 - var_ws_y[i,j])
+                        var_s[i]
+                        >= self.ws_starting_time[j]
+                        + eps
+                        - value_m * (1 - var_ws_y[i, j])
                     )
                     model.addConstr(
-                        var_s[i] <= self.ws_starting_time[j] + value_m * var_ws_y[i,j]
+                        var_s[i] <= self.ws_starting_time[j] + value_m * var_ws_y[i, j]
                     )
 
                     # z_ij indicates c_i <= C_j
                     model.addConstr(
-                        self.ws_completion_time[j] >= var_c[i] + eps - value_m * (1 - var_ws_z[i,j])
+                        self.ws_completion_time[j]
+                        >= var_c[i] + eps - value_m * (1 - var_ws_z[i, j])
                     )
                     model.addConstr(
-                        self.ws_completion_time[j] <= var_c[i] + value_m * var_ws_z[i,j]
+                        self.ws_completion_time[j]
+                        <= var_c[i] + value_m * var_ws_z[i, j]
                     )
 
                     # from left to right, ws_assignment_ij == 1 --> y_ij == 1 and z_ij == 1
                     # y_ij + z_ij - 2*ws_assignment_ij >= 0
                     model.addConstr(
-                        var_ws_y[i,j] + var_ws_z[i,j] - 2*var_ws_assignments[i,j] >= 0
+                        var_ws_y[i, j] + var_ws_z[i, j] - 2 * var_ws_assignments[i, j]
+                        >= 0
                     )
 
                     # from right to left, y_ij == 0 or z_ij == 0 --> ws_assignment_ij == 0
                     # ws_assignment_ij - y_ij - z_ij >= -1
                     model.addConstr(
-                        var_ws_assignments[i,j] - var_ws_y[i,j] - var_ws_z[i,j] >= -1
+                        var_ws_assignments[i, j] - var_ws_y[i, j] - var_ws_z[i, j] >= -1
                     )
 
         # set the objective
@@ -835,15 +846,18 @@ class FJS2:
             # print(f"self.operations={self.operations}")
             # operation_names = list(self.operations.values())
             operation_ids = list(self.operations.values())
+            machine_ids = list(self.machines.values())
 
-            for i, m in it.product(range(len(self.operations)), range(len(self.machines))):
+            for i, m in it.product(
+                range(len(self.operations)), range(len(self.machines))
+            ):
                 if var_y_solution[i, m] == 1:
                     # assignments[operation_ids[i]] = self.machines[m]
                     # start_times[operation_ids[i]] = var_s_solution[i]
                     # end_times[operation_ids[i]] = var_c_solution[i]
                     solved_operation = SolvedOperation(
                         id=operation_ids[i],
-                        assigned_to=self.machines[m],
+                        assigned_to=machine_ids[m],
                         start_time=var_s_solution[i],
                         end_time=var_c_solution[i],
                     )
@@ -916,4 +930,9 @@ class FJS2:
                 gap_starting_time.append(ws_completion_time[i])
                 gap_completion_time.append(gap_starting_time[i] + ws[1])
 
-        return ws_starting_time, ws_completion_time, gap_starting_time, gap_completion_time
+        return (
+            ws_starting_time,
+            ws_completion_time,
+            gap_starting_time,
+            gap_completion_time,
+        )
