@@ -418,11 +418,10 @@ class FJS2:
         para_mach_capacity: list[int] | np.ndarray,
         para_lmin: np.ndarray,
         para_lmax: np.ndarray,
-        precedence: dict[str, list[str]],
+        # precedence: dict[str, list[str]],
         model_string: str | None = None,
         num_workers: int = None,
         inf_milp: float = 1.0e7,
-        # shift_durations: float|int = None,
         workshifts: list[tuple[float, float]] = None,
         operations_subset_indices: list[int] = None,
         big_m: float | int = None,
@@ -444,18 +443,18 @@ class FJS2:
         para_w : np.ndarray
             The weight of operation i on machine k, with shape (n_opt, n_mach).
         para_h : np.ndarray
-            The time lag of operation i on machine k, with shape (n_opt, n_mach).
+            The maximum holding time of operation i in machine m, with shape of (n_opt, n_mach).
         para_delta : np.ndarray
             The input/output delay time between two consecutive operations in machine
             m, with shape (n_mach).
         para_mach_capacity : list[int] | np.ndarray
-            The capacity of each machine.
+            The capacity of each machine with shape (n_mach).
         para_lmin : np.ndarray
             The minimum lag between the starting time of operation j and the ending time of
             operation i (l_ij=-inf if there is no precedence relationship between operations i and j).
         para_lmax : np.ndarray
             The maximum lag time between the starting time of operation j and the ending time of
-            operation i (lij=+inf if there is no precedence relationship between operations i and j)
+            operation i (l_ij=+inf if there is no precedence relationship between operations i and j)
         model_string : str | None, optional
             The model string, by default None.
         num_workers : int, optional
@@ -496,8 +495,6 @@ class FJS2:
 
         self.inf_milp = inf_milp
 
-        # self.operations = operations
-        # self.machines = machines
         # if operations is a list, turn it into a dictionary
         if isinstance(operations, list):
             operations = {str(i): operations[i] for i in range(len(operations))}
@@ -510,7 +507,6 @@ class FJS2:
         self.operations = operations
         self.machines = machines
 
-        self.precedence = precedence
         # self.time_estimates = None
         self.model_string = model_string
 
@@ -524,8 +520,6 @@ class FJS2:
         self.para_mach_capacity = para_mach_capacity
 
         if big_m is None:
-            # print(f"para_lmin={para_lmin}")
-            # print(f"non-negative elements of para_lmin: {para_lmin[para_lmin>=0]}")
             self.big_m = get_big_m_value(
                 para_p=para_p,
                 para_h=para_h,
@@ -535,11 +529,6 @@ class FJS2:
             )
             print(f"the inferred big_m value with Runzhong version is {self.big_m}")
 
-        # # this part works because the leak of infinity to big_m
-        # if big_m is None:
-        #     self.big_m = get_m_value_old(
-        #         para_p=para_p, para_h=para_h, para_lmin=para_lmin, para_a=para_a
-        #     )
         else:
             self.big_m = big_m
 
@@ -569,10 +558,6 @@ class FJS2:
                 para_lmax=para_lmax,
                 ws_completion_time=None,
             )
-
-        # self.big_m = self.horizon
-
-        # print(f"big_m: {self.big_m}")
 
         self.operations_subset_indices = operations_subset_indices
         # self.num_workshifts = num_workshifts
@@ -612,14 +597,7 @@ class FJS2:
         var_c = model.addMVar(n_opt, vtype=GRB.CONTINUOUS, name="var_c")
 
         # objective
-        # var_c_max = model.addVar(
-        #     lb=1.0e-5, ub=self.horizon + 1, vtype=GRB.CONTINUOUS, name="var_c_max"
-        # )
         var_c_max = model.addVar(lb=1.0e-5, name="var_c_max", vtype=GRB.CONTINUOUS)
-
-        # var_c_max = model.addVar(
-        #     name="var_c_max", lb=1e-5, ub=float("inf"), vtype=GRB.CONTINUOUS
-        # )
 
         # add constraints
         for i in range(n_opt):
@@ -845,8 +823,6 @@ class FJS2:
             var_s_solution = self.var_s.X
             var_c_solution = self.var_c.X
 
-            # print(f"self.operations={self.operations}")
-            # operation_names = list(self.operations.values())
             operation_ids = list(self.operations.values())
             machine_ids = list(self.machines.values())
 
@@ -854,9 +830,6 @@ class FJS2:
                 range(len(self.operations)), range(len(self.machines))
             ):
                 if var_y_solution[i, m] == 1:
-                    # assignments[operation_ids[i]] = self.machines[m]
-                    # start_times[operation_ids[i]] = var_s_solution[i]
-                    # end_times[operation_ids[i]] = var_c_solution[i]
                     solved_operation = SolvedOperation(
                         id=operation_ids[i],
                         assigned_to=machine_ids[m],
