@@ -814,9 +814,6 @@ class FJS2:
         if self.model.Status == GRB.OPTIMAL:
             print(f"the solution is : {self.model.objVal}")
 
-            # assignments = dict()
-            # start_times = dict()
-            # end_times = dict()
             solved_operations = []
 
             var_y_solution = self.var_y.X
