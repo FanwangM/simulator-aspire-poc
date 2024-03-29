@@ -726,6 +726,7 @@ class FJS2:
             else:
                 operations_subset = self.operations
 
+            n_opt_subset = len(operations_subset)
             eps = 1e-5
             value_m = self.horizon * 10 + eps
             # number of work shifts
@@ -733,20 +734,21 @@ class FJS2:
 
             # add the work shift assignment variables
             var_ws_assignments = model.addMVar(
-                (n_opt, n_ws), vtype=GRB.BINARY, name="var_ws_assignments"
+                (n_opt_subset, n_ws), vtype=GRB.BINARY, name="var_ws_assignments"
             )
             self.var_ws_assignments = var_ws_assignments
 
             # axuiliary variables y
-            var_ws_y = model.addMVar((n_opt, n_ws), vtype=GRB.BINARY, name="var_ws_y")
+            var_ws_y = model.addMVar((n_opt_subset, n_ws), vtype=GRB.BINARY, name="var_ws_y")
             # axuiliary variables z
-            var_ws_z = model.addMVar((n_opt, n_ws), vtype=GRB.BINARY, name="var_ws_z")
+            var_ws_z = model.addMVar((n_opt_subset, n_ws), vtype=GRB.BINARY, name="var_ws_z")
 
             self.var_ws_y = var_ws_y
             self.var_ws_z = var_ws_z
 
-            for i, operation in operations_subset.items():
-                i = int(i)
+            for i, _ in enumerate(operations_subset.items()):
+                # i = int(i)
+
                 # the i-th operation should be processed in the i-th work shift,
                 # c_i - s_i <= shift_duration of j-th work shift
 
