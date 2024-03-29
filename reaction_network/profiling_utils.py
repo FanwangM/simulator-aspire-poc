@@ -8,15 +8,15 @@ import itertools as it
 import numpy as np
 import pandas as pd
 
-from checking_constraints import (
+from reaction_network.checking_constraints import (
     check_constraints_cp,
     check_constraints_milp,
     infer_var_x,
     infer_var_z,
 )
-from fjss import FJS2
-from utils import *  # get_m_value, parse_data
-from utils import parse_data
+from reaction_network.fjss import FJS2
+from reaction_network.utils import *  # get_m_value, parse_data
+from reaction_network.utils import parse_data
 
 
 def load_data(input_fname="gfjsp_10_5_1.txt"):
