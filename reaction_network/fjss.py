@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import random
+import warnings
 import itertools as it
 from abc import ABC
 from collections import defaultdict, OrderedDict
@@ -840,7 +841,8 @@ class FJS2:
                 makespan=self.model.objVal,
             )
         else:
-            print("No solution found.")
+            warnings.warn("No solution found.")
+
             return None
 
     def get_params(self):
