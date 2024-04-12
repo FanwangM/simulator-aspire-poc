@@ -1,13 +1,14 @@
 """Test the FJSS module."""
 
+import itertools as it
+
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-import itertools as it
+
 from reaction_network.fjss import FJS2
 from reaction_network.sample_data import build_sample_example_data
 from reaction_network.utils import check_fix_shape_of_para_a
-
 
 eps = 1e-6
 infinity = 1e7
@@ -36,7 +37,54 @@ def checking_fjss_milp(
     ws_c: np.array = None, # completion time of work shift
     tol: float = 1.0e-6,
 ):
-    """Check the constraints of fjss with MILP fomulation, fjss2."""
+    """Check the constraints of fjss with MILP fomulation, fjss2.
+
+    Parameters
+    ----------
+    var_y : np.ndarray
+        Binary variable indicating the assignment of operation i to machine j.
+    var_s : np.ndarray
+        Starting time of operation i.
+    var_c : np.ndarray
+        Completion time of operation i.
+    var_c_max : float | int
+        Makespan of the problem.
+    operations : list[str]
+        List of operation names.
+    machines : list[str]
+        List of machine names.
+    para_p : np.ndarray
+        Processing time of operation i on machine j.
+    para_a : np.ndarray
+        Setup time of operation i before operation j on machine m.
+    para_w : np.ndarray
+        Weight of operation i on machine m.
+    para_h : np.ndarray
+        Holding cost of operation i on machine m.
+    para_delta : np.ndarray
+        input/output delay time between two consecutive operations in machine m.
+    para_mach_capacity : list[int] | np.ndarray
+        Capacity of machine m.
+    para_lmin : np.ndarray
+        Minimum time between operation i and j. This indicates the precedence relationship.
+    para_lmax : np.ndarray
+        Maximum time between operation i and j.
+    big_m : float | int
+        Big M value.
+    var_x : np.array, optional
+        Binary variable indicating if operation is is processed before operation j.
+    var_z : np.array, optional
+        Binary variable indicating if operation i is processed before operation j on machine m.
+    var_v : np.array, optional
+        Binary variable indicating the work shift assignment.
+    ws_s : np.array, optional
+        Start time of work shift.
+    ws_c : np.array, optional
+        Completion time of work shift.
+    tol : float, optional
+        Tolerance value. This is required due to the numerical precision of the solver.
+
+    """
     n_opt = len(operations)
     n_mach = len(machines)
 
